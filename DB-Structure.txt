@@ -1,0 +1,101 @@
+@Author George Morales
+
+AWS Single RDS instance with Single DB instance (unified struct for faster & less expensive cross table queries)
+
+----------------------------------------------------------------------------------------------------------------------------------------------------|
+
+/API/V1/SENSORS
+
+Table Name: SENSORS (tracks unqiue sensor. Holds id, brand, metadata, and current_location, last_location)
+
+SENSORS schema:
+COLUMN NAME		           DESCRIPTION
+id                         (Unique) identifier
+sensor_id	               The unique ID of the sensor.
+sensor_brand	           The brand of the sensor.
+latitude                   latitude of sensor location
+longitude                  longitude of sensor location
+last_latitude              latitude of the sensor's previous location
+last_longitude             longitude of the sensor's previous location
+last_location_update       last date location was updated
+is_active                  Boolean
+date_uploaded              date of sensor upload
+
+
+CREATE TABLE SENSORS (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sensor_id VARCHAR(255) NOT NULL,
+    sensor_brand VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    last_latitude DECIMAL(10, 8),
+    last_longitude DECIMAL(11, 8),
+    last_location_update DATEIME NOT NULL
+    is_active BOOLEAN DEFAULT TRUE,
+    date_uploaded DATEIME NOT NULL
+    UNIQUE KEY unique_sensor_table (sensor_brand, sensor_id)
+
+----------------------------------------------------------------------------------------------------------------------------------------------------|
+
+/API/V1/SENSOR-SCHEMAS
+
+Table Name: SENSOR_SCHEMAS (track sensor measurement tables and table schemas since multiple sensors...
+                            ... will have diff tables for storing diff data)
+
+SENSORS_MEASUREMENTS schema:
+COLUMN NAME		             DESCRIPTION
+id                           (Unique) identifier
+sensor_id	                 The unique ID of the sensor.
+sensor_brand	             The brand of the sensor.
+measurement_table_name	     (Unique) A unique name for each data/measurement table assoc with this sensor configuration
+measurement_type	         Specifies the type of data (RAW, CORRECTED).
+measurement_time_interval    Specifies the interval of measurements (HOURLY, DAILY, or NIETHER).
+measurement_table_schema     JSON object defining the schema for the measurement table for this specific sensor configuration.
+
+
+// Raw has no time interval associated (always none)
+// Existing sensor tables/schemas CAN BE updated
+
+
+CREATE TABLE SENSOR_MEASUREMENTS (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sensor_id VARCHAR(255) NOT NULL,
+    sensor_brand VARCHAR(255) NOT NULL,
+    measurement_table_name VARCHAR(255) NOT NULL,
+    measurement_table_schema JSON,
+    measurement_type VARCHAR(255) NOT NULL,
+    time_interval VARCHAR(50) NOT NULL,
+    UNIQUE KEY unique_measurement_table (measurement_table_name)
+);
+
+
+NOTES:
+-> measurement_table_name = sensor_brand + '_' + sensor_id + '_' + data_type + '_' + time_interval
+
+-> When new data is uploaded, a new sensor configuration is added to the Sensors Schema table,
+   a corresponding 'Measurements' table is created. For instance, if the table 'airly_00858_corrected_daily' already exists
+   but data in an hourly format also needs to be uploaded from the same sensor, a new table called 'airly_00858_corrected_hourly'
+   is generated and linked with an entry in the Sensors table like this:
+   ['airly_00858_corrected_hourly', 'airly', '00858', 'corrected', 'hourly', location, SCHEMA].
+   The SCHEMA is specified by the admin user during the creation of the sensor entry and is a JSON object formatted as:
+   {
+       "column-name": "dtype"...
+   }
+
+----------------------------------------------------------------------------------------------------------------------------------------------------|
+
+/API/V1/measurements
+
+NOTES:
+
+ User can grab data via query that specifies the following:
+    - sensor_brand (id)
+    - sensor_id (int or id)
+    - data_type ('raw', 'corrected', 'both')
+    - time_interval ('hourly', daily, 'none')
+
+
+// FETCH (query -> start, end)
+// GET LAST ROW (
+
+----------------------------------------------------------------------------------------------------------------------------------------------------|
