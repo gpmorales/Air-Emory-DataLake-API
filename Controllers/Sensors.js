@@ -1,4 +1,3 @@
-const { validateLocation, insertNewSensor, createPayload } = require("./Utility.js")
 const { AWSRDSInstanceConnection, closeAWSConnection } = require("../Database-Config/AWSRDSInstanceConnection");
 const { Parser } = require("json2csv");
 const Joi = require("joi");
@@ -205,7 +204,7 @@ async function getSensorsByBrand(request, response) {
 module.exports = {
   getAllSensors,
   addNewSensor,
-  updateSensor,
+  updateSensor, // TODO
   getSensorInfo,
   getSensorsByBrand,
 };

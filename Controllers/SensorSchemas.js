@@ -152,12 +152,12 @@ async function addSensorSchema(request, response) {
 }
 
 
-async function downloadSensorSchemas(request, response) {
+async function downloadSensorReadings(request, response) {
     let RDSdatabase;
 
     try {
         // Extract parameters from the request
-        const { sensor_brand, sensor_id, measurement_type, time_interval } = request.params;
+        const { sensor_brand, sensor_id, measurement_type, measurement_time_interval } = request.params;
 
         if (!sensor_brand || !sensor_id) {
             return response.status(400).json({ message: 'Sensor brand and sensor ID are required.' });
@@ -169,7 +169,7 @@ async function downloadSensorSchemas(request, response) {
             });
         }
 
-        if (!TIME_INTERVALS.includes(time_interval)) {
+        if (!TIME_INTERVALS.includes(measurement_time_interval)) {
             return response.status(400).json({
                 message: `Invalid time interval. Allowed values are: ${TIME_INTERVALS.join(", ")}.`,
             });
@@ -213,7 +213,8 @@ async function downloadSensorSchemas(request, response) {
 
 module.exports = {
     getAllSensorSchemas,
-    getSensorSchema,
     addSensorSchema,
-    downloadSensorSchemas,
+    // updateSensorSchema // TODO
+    getSensorSchema,
+    downloadSensorReadings,
 };
