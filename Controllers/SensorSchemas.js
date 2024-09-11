@@ -108,7 +108,7 @@ async function addSensorSchema(request, response) {
         const { 
             sensor_id,
             sensor_brand,
-            sensor_data_schema
+            sensor_data_schema,
             measurement_type,
             measurement_time_interval,
         } = value;
@@ -210,7 +210,6 @@ async function downloadSensorReadings(request, response) {
 }
 
 
-// TODO
 async function updateSensorSchema(request, response) {
     let RDSdatabase;
 
@@ -316,16 +315,13 @@ async function updateSensorSchema(request, response) {
             }
         }
 
-        // Specific error handling for duplicate column names
         if (err.code === 'ER_DUP_FIELDNAME') {
             return response.status(400).json({ message: `One of the provided column names already exists in the table '${sensor_data_table}'.` });
         }
 
-        // Generic error response
         response.status(500).json({ message: 'An error occurred while updating the sensor schema.' });
     }
 }
-
 
 
 module.exports = {

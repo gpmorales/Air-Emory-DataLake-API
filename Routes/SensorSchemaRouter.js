@@ -6,8 +6,8 @@ const {
     getAllSensorSchemas,
     addSensorSchema,
     getSensorSchema,
+    updateSensorSchema,
     downloadSensorReadings,
-    // updateSensorSchema // TODO
 } = require("../Controllers/SensorSchemas.js");
 
 
@@ -164,6 +164,109 @@ SensorSchemaRouter.post(
  *         description: Server error
  */
 SensorSchemaRouter.route("/:sensor_brand/:sensor_id").get(getSensorSchema);
+
+
+/**
+ * @swagger
+ * /api/v2/sensor-schemas/{sensor_brand}/{sensor_id}/{measurement_type}/{measurement_time_interval}/schema:
+ *   put:
+ *     summary: Update sensor schema
+ *     description: Update the schema of a specific sensor's measurement table by adding new columns or renaming existing ones.
+ *     tags:
+ *       - Sensor Schemas
+ *     parameters:
+ *       - in: path
+ *         name: sensor_brand
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor
+ *       - in: path
+ *         name: sensor_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the sensor
+ *       - in: path
+ *         name: measurement_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RAW, CORRECTED, raw, corrected]
+ *         description: The type of measurement
+ *       - in: path
+ *         name: measurement_time_interval
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [HOURLY, DAILY, NIETHER, daily, hourly, neither]
+ *         description: The time interval of measurements
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               new_columns_dict:
+ *                 type: object
+ *                 additionalProperties:
+ *                   type: string
+ *                 description: Dictionary of new column names and their types
+ *               rename_column_dict:
+ *                 type: object
+ *                 additionalProperties:
+ *                   type: string
+ *                 description: Dictionary of old column names and their new names
+ *             example:
+ *               new_columns_dict:
+ *                 new_column1: "varchar(50)"
+ *                 new_column2: "int"
+ *               rename_column_dict:
+ *                 old_column_name: "new_column_name"
+ *     responses:
+ *       200:
+ *         description: Sensor schema updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sensor schema updated successfully.
+ *       400:
+ *         description: Bad request - missing or invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Sensor brand and sensor ID are required.
+ *       404:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Sensor not found.
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: An error occurred while updating the sensor schema.
+ */
+SensorSchemaRouter.route("/:sensor_brand/:sensor_id/:measurement_type/:measurement_time_interval").put(updateSensorSchema);
 
 
 /**

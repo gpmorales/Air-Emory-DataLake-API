@@ -299,7 +299,7 @@ SensorRouter.route("/:sensor_brand/:sensor_id/location").put(updateSensorLocatio
  *                   type: string
  *                   example: An error occurred while deprecating the sensor
  */
-SensorRouter.route("/:sensor_brand/:sensor_id/deprecate").delete(deprecateSensor);
+SensorRouter.delete("/:sensor_brand/:sensor_id/deprecate", deprecateSensor);
 
 
 /**
