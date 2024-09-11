@@ -1,4 +1,4 @@
-const { validateLocation, createSensorMeasurementsTable, insertNewSensor, createPayload } = require("./Utility.js")
+const { createSensorMeasurementsTable, createPayload } = require("../Utility/SensorSchemaUtility.js")
 const { AWSRDSInstanceConnection, closeAWSConnection } = require("../Database-Config/AWSRDSInstanceConnection");
 const { Parser } = require("json2csv");
 const Joi = require("joi");
