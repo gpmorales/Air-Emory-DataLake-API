@@ -71,7 +71,7 @@ async function getSensorSchema(request, response) {
 
         await closeAWSConnection(RDSdatabase);
 
-        response.status(200).json(sensor_tables);
+        response.status(200).json(sensor_schemas);
 
     } catch (err) {
         console.error('Error fetching sensors:', err);
@@ -101,7 +101,7 @@ async function addSensorSchema(request, response) {
         const { error, value } = sensorMeasurementSchema.validate(payload, { abortEarly: false });
 
         if (error) {
-            return response.status(400).json({ error: error.details.map(detail => detail.message) });
+            return response.status(400).json({ message : "Request parameters incorrect: \n" + error.details.map(detail => detail.message) });
         }
 
         // Deconstruct the validated payload
@@ -123,7 +123,7 @@ async function addSensorSchema(request, response) {
         }
 
         // Insert into SENSOR_MEASUREMENT table
-        const [insertedId] = await RDSdatabase(SENSOR_MEASUREMENT_TABLE).insert({
+        const [insertedId] = await RDSdatabase(SENSOR_SCHEMA_TABLE).insert({
             sensor_id,
             sensor_brand,
             measurement_table_name,
@@ -169,9 +169,9 @@ async function downloadSensorReadings(request, response) {
             });
         }
 
-        if (!TIME_INTERVALS.includes(measurement_time_interval)) {
+        if (!MEASUREMENT_TIME_INTERVALS.includes(measurement_time_interval)) {
             return response.status(400).json({
-                message: `Invalid time interval. Allowed values are: ${TIME_INTERVALS.join(", ")}.`,
+                message: `Invalid time interval. Allowed values are: ${MEASUREMENT_TIME_INTERVALS.join(", ")}.`,
             });
         }
 

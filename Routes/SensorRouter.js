@@ -43,6 +43,14 @@ const {
  *                     type: number
  *                     format: float
  *                     description: Longitude coordinate of the sensor
+ *                   last_latitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Latitude coordinate of the sensor's last location
+ *                   last_longitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Longitude coordinate of the sensor's last location
  *                   last_location_update:
  *                     type: boolean
  *                     description: The previous date the sensors location was updated
@@ -162,6 +170,14 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(addNewSensor);
  *                     type: number
  *                     format: float
  *                     description: Longitude coordinate of the sensor
+ *                   last_latitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Latitude coordinate of the sensor's last location
+ *                   last_longitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Longitude coordinate of the sensor's last location
  *                   last_location_update:
  *                     type: boolean
  *                     description: The previous date the sensors location was updated
@@ -216,6 +232,14 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
  *                     type: number
  *                     format: float
  *                     description: Longitude coordinate of the sensor
+ *                   last_latitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Latitude coordinate of the sensor's last location
+ *                   last_longitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Longitude coordinate of the sensor's last location
  *                   last_location_update:
  *                     type: boolean
  *                     description: The previous date the sensors location was updated

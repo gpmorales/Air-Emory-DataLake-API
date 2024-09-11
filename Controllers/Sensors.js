@@ -1,5 +1,4 @@
 const { AWSRDSInstanceConnection, closeAWSConnection } = require("../Database-Config/AWSRDSInstanceConnection");
-const { Parser } = require("json2csv");
 const Joi = require("joi");
 
 
@@ -12,7 +11,6 @@ const sensorUploadSchema = Joi.object({
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
 });
-
 
 
 /**** API functions ****/
@@ -53,7 +51,6 @@ async function getSensorInfo(request, response) {
     const { sensor_brand, sensor_id } = request.params;
 
     if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
-        // If either parameter is missing or empty, return a 404 response
         return response.status(404).json({ error: 'sensor_brand and sensor_id are required parameters.' });
     }
 
@@ -113,15 +110,6 @@ async function addNewSensor(request, response) {
             longitude,
         } = value;
 
-        // Check if the sensor already exists in the SENSORS table
-        const existingSensor = await RDSdatabase(SENSOR_TABLE)
-            .where({ sensor_id, sensor_brand })
-            .first();
-
-        if (existingSensor) {
-            return response.status(201).json({ message: "This Sensor has already been previously registered." });
-        } 
-
         // Define additional fields for insertion
         const date_uploaded = RDSdatabase.fn.now();
         const last_location_update = RDSdatabase.fn.now(); 
@@ -152,14 +140,147 @@ async function addNewSensor(request, response) {
             }
         }
 
-        response.status(500).json({ message: 'An error occurred while adding the sensor.' });
+        if (error.code === 'ER_DUP_ENTRY') {
+            response.status(400).json({ message: `Error: A sensor with ID '${sensorData.sensor_id}' and brand '${sensorData.sensor_brand}' already exists.`});
+        } else {
+            response.status(500).json({ message: 'An error occurred while adding the sensor.\n' + err.message });
+        }
     }
 }
 
 
-// Upate or Remove a sensor (flag as inactive)
-async function updateSensor(request, response) {
+// Update a sensors location 
+async function updateSensorLocation(request, response) {
+    let RDSdatabase;
 
+    const { sensor_brand, sensor_id, new_latitude, new_longitude } = request.params;
+
+    if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
+        return response.status(400).json({ error: 'sensor_brand and sensor_id are required parameters.' });
+    }
+
+    // Check if new_latitude (sic) and new_longitude are provided
+    if (new_latitude === undefined || new_longitude === undefined) {
+        return response.status(400).json({ error: 'new_latitude and new_longitude are required parameters.' });
+    }
+
+    // Parse and validate latitude and longitude
+    const newLatitude = parseFloat(new_latitude);
+    const newLongitude = parseFloat(new_longitude);
+
+    if (isNaN(newLatitude) || isNaN(newLongitude) || 
+        newLatitude < -90 || newLatitude > 90 || 
+        newLongitude < -180 || newLongitude > 180) {
+        return response.status(400).json({ error: 'Invalid latitude or longitude values.' });
+    }
+
+    try {
+        RDSdatabase = await AWSRDSInstanceConnection();
+
+        // Check if the sensor exists
+        const sensorExists = await RDSdatabase(SENSOR_TABLE)
+            .where({ sensor_brand, sensor_id })
+            .first();
+
+        if (!sensorExists) {
+            await closeAWSConnection(RDSdatabase);
+            return response.status(400).json({ error: 'Sensor not found.' });
+        }
+
+        // Update the sensor's location
+        const updatedRows = await RDSdatabase(SENSOR_TABLE)
+            .where({ sensor_brand, sensor_id })
+            .update({
+                latitude: newLatitude,
+                longitude: newLongitude,
+                last_latitude: sensorExists.latitude,
+                last_longitude: sensorExists.longitude,
+                last_location_update: RDSdatabase.fn.now()
+            });
+
+        await closeAWSConnection(RDSdatabase);
+
+        if (updatedRows === 0) {
+            return response.status(500).json({ error: 'Failed to update sensor location.' });
+        }
+
+        response.status(200).json({ 
+            message: 'Sensor location updated successfully.',
+            updated: {
+                sensor_brand,
+                sensor_id,
+                new_latitude: newLatitude,
+                new_longitude: newLongitude,
+                previous_latitude: sensorExists.latitude,
+                previous_longitude: sensorExists.longitude
+            }
+        });
+    } catch (err) {
+        console.error('Error updating sensor location:', err);
+
+        if (RDSdatabase) {
+            try {
+                await closeAWSConnection(RDSdatabase);
+            } catch (closeErr) {
+                console.error('Error closing database connection:', closeErr);
+            }
+        }
+        response.status(500).json({ error: 'An error occurred while updating the sensor location' });
+    }
+}
+
+
+// Flag a sensor inactive but do not remove its data
+async function deprecateSensor(request, response) {
+    let RDSdatabase;
+
+    const { sensor_brand, sensor_id } = request.params;
+
+    if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
+        return response.status(400).json({ error: 'sensor_brand and sensor_id are required parameters.' });
+    }
+
+    try {
+        RDSdatabase = await AWSRDSInstanceConnection();
+        
+        const sensorExists = await RDSdatabase(SENSOR_TABLE)
+            .where({ sensor_brand, sensor_id })
+            .first();
+        
+        if (!sensorExists) {
+            await closeAWSConnection(RDSdatabase);
+            return response.status(400).json({ error: 'Sensor not found.' });
+        }
+        
+        // Update the sensor to inactive
+        const updatedRows = await RDSdatabase(SENSOR_TABLE)
+            .where({ sensor_brand, sensor_id })
+            .update({ 
+                is_active: false,
+                last_location_update: RDSdatabase.fn.now() // Update the last_location_update timestamp
+            });
+        
+        await closeAWSConnection(RDSdatabase);
+        
+        if (updatedRows === 0) {
+            return response.status(500).json({ error: 'Failed to update sensor status.' });
+        }
+        
+        response.status(200).json({ message: 'Sensor successfully marked as inactive.' });
+
+    } catch (err) {
+        console.error('Error deprecating sensor:', err);
+
+        if (RDSdatabase) {
+            try {
+                await closeAWSConnection(RDSdatabase);
+            } catch (closeErr) {
+                console.error('Error closing database connection:', closeErr);
+            }
+        }
+
+        response.status(500).json({ error: 'An error occurred while deprecating the sensor' });
+    }
 }
 
 
@@ -200,11 +321,11 @@ async function getSensorsByBrand(request, response) {
 }
 
 
-
 module.exports = {
-  getAllSensors,
-  addNewSensor,
-  updateSensor, // TODO
-  getSensorInfo,
-  getSensorsByBrand,
+    getAllSensors,
+    addNewSensor,
+    updateSensorLocation, 
+    deprecateSensor,
+    getSensorInfo,
+    getSensorsByBrand,
 };

@@ -1,6 +1,5 @@
 const knex = require('knex');
 
-
 /* UTILITY FUNCTIONS */
 
 async function createMeasurementTable(database, tableName, schema) {
@@ -58,34 +57,8 @@ function createPayload(request) {
     };
 }
 
-async function insertNewSensor(database, sensor_id, sensor_brand, latitude, longitude) {
-    const date_uploaded = database.fn.now();
-    const last_location_update = database.fn.now();
-    const is_active = true;
-    await database(SENSOR_TABLE).insert({
-        sensor_id,
-        sensor_brand,
-        latitude,
-        longitude,
-        is_active,
-        date_uploaded,
-        last_location_update
-    });
-}
-
-function validateLocation(existingSensor, latitude, longitude) {
-    if (latitude !== null && longitude !== null) {
-        if (latitude !== existingSensor.latitude || longitude !== existingSensor.longitude) {
-            return "The provided location does not match the Sensor's current longitude & latitude. Please update its location if it has moved.";
-        }
-    }
-    return null;
-}
-
 
 module.exports = {
-    validateLocation,
     createMeasurementTable,
-    insertNewSensor,
     createPayload,
 }
