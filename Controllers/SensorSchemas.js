@@ -12,9 +12,9 @@ const MEASUREMENT_TIME_INTERVALS = ["HOURLY", "DAILY", "NIETHER", "daily", "hour
 const sensorMeasurementSchema = Joi.object({
     sensor_id: Joi.string().required(),
     sensor_brand: Joi.string().required(),
+    sensor_data_schema: Joi.object().required(),
     measurement_type: Joi.string().required().valid(...MEASUREMENT_TYPES),
     measurement_time_interval: Joi.string().required().valid(...MEASUREMENT_TIME_INTERVALS),
-    measurement_table_schema: Joi.object().required(),
 });
 
 
@@ -57,8 +57,8 @@ async function getSensorSchema(request, response) {
     const { sensor_brand, sensor_id } = request.params;
 
     if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
-        // If either parameter is missing or empty, return a 404 response
-        return response.status(404).json({ error: 'sensor_brand and sensor_id are required parameters.' });
+        // If either parameter is missing or empty, return a 400 response
+        return response.status(400).json({ error: 'sensor_brand and sensor_id are required parameters.' });
     }
 
     try {
@@ -108,32 +108,32 @@ async function addSensorSchema(request, response) {
         const { 
             sensor_id,
             sensor_brand,
+            sensor_data_schema
             measurement_type,
             measurement_time_interval,
-            measurement_table_schema,
         } = value;
 
         // Create measurement table
-        const measurement_table_name = `${sensor_brand}_${sensor_id}_${measurement_type}_${measurement_time_interval}`;
-
-        const tableCreationResult = await createSensorMeasurementsTable(RDSdatabase, measurement_table_name, measurement_table_schema);
-
-        if (!tableCreationResult.success) {
-            return response.status(400).json({ error: tableCreationResult.message });
-        }
+        const sensor_table_name = `${sensor_brand}_${sensor_id}_${measurement_type}_${measurement_time_interval}`;
 
         // Insert into SENSOR_MEASUREMENT table
         const [insertedId] = await RDSdatabase(SENSOR_SCHEMA_TABLE).insert({
             sensor_id,
             sensor_brand,
-            measurement_table_name,
+            sensor_table_name,
+            ssensor_data_schema: JSON.stringify(sensor_data_schema),
             measurement_type,
             measurement_time_interval,
-            measurement_table_schema: JSON.stringify(measurement_table_schema),
         });
 
+        const tableCreationResult = await createSensorMeasurementsTable(RDSdatabase, sensor_table_name, sensor_data_schema);
+
+        if (!tableCreationResult.success) {
+            return response.status(400).json({ error: tableCreationResult.message });
+        }
+
         response.status(201).json({
-            message: `Sensor successfully added with row ID ${insertedId} in measurement table ${measurement_table_name}.`
+            message: `Sensor successfully added with row ID ${insertedId} in measurement table ${sensor_table_name}.`
         });
 
     } catch (err) {
@@ -160,18 +160,18 @@ async function downloadSensorReadings(request, response) {
         const { sensor_brand, sensor_id, measurement_type, measurement_time_interval } = request.params;
 
         if (!sensor_brand || !sensor_id) {
-            return response.status(400).json({ message: 'Sensor brand and sensor ID are required.' });
+            return response.status(400).json({ error: 'Sensor brand and sensor ID are required.' });
         }
 
         if (!MEASUREMENT_TYPES.includes(measurement_type)) {
             return response.status(400).json({
-                message: `Invalid measurement type. Allowed values are: ${MEASUREMENT_TYPES.join(", ")}.`,
+                error: `Invalid measurement type. Allowed values are: ${MEASUREMENT_TYPES.join(", ")}.`,
             });
         }
 
         if (!MEASUREMENT_TIME_INTERVALS.includes(measurement_time_interval)) {
             return response.status(400).json({
-                message: `Invalid time interval. Allowed values are: ${MEASUREMENT_TIME_INTERVALS.join(", ")}.`,
+                error: `Invalid time interval. Allowed values are: ${MEASUREMENT_TIME_INTERVALS.join(", ")}.`,
             });
         }
 
@@ -184,7 +184,7 @@ async function downloadSensorReadings(request, response) {
 
         // Check if data exists
         if (!sensor_data || sensor_data.length === 0) {
-            return response.status(400).json({ message: 'No data found for the specified sensor.' });
+            return response.status(400).json({ error: 'No data found for the specified sensor.' });
         }
 
         await closeAWSConnection(RDSdatabase);
@@ -200,7 +200,7 @@ async function downloadSensorReadings(request, response) {
 
     } catch (err) {
         console.error("Error downloading sensor data: ", err);
-        response.status(500).json({ message: 'Error processing your request.' });
+        response.status(500).json({ error: 'Error processing your request.' });
     } finally {
         // Ensure the connection is closed in case of an error
         if (RDSdatabase) {
@@ -210,11 +210,128 @@ async function downloadSensorReadings(request, response) {
 }
 
 
+// TODO
+async function updateSensorSchema(request, response) {
+    let RDSdatabase;
+
+    const { sensor_brand, sensor_id, measurement_type, measurement_time_interval } = request.params;
+
+    // Validate required parameters
+    if (!sensor_brand || !sensor_id) {
+        return response.status(400).json({ error: 'Sensor brand and sensor ID are required.' });
+    }
+
+    // Validate measurement type and time interval
+    if (!MEASUREMENT_TYPES.includes(measurement_type)) {
+        return response.status(400).json({
+            error: `Invalid measurement type. Allowed values are: ${MEASUREMENT_TYPES.join(", ")}.`,
+        });
+    }
+
+    if (!MEASUREMENT_TIME_INTERVALS.includes(measurement_time_interval)) {
+        return response.status(400).json({
+            error: `Invalid time interval. Allowed values are: ${MEASUREMENT_TIME_INTERVALS.join(", ")}.`,
+        });
+    }
+
+    try {
+        // Parse request body
+        const payload = await request.body; 
+        
+        const { new_columns_dict, rename_column_dict } = payload;
+
+        // Validate the presence of new_columns_dict or rename_column_dict
+        if ((!new_columns_dict || Object.keys(new_columns_dict).length === 0) && (!rename_column_dict || Object.keys(rename_column_dict).length === 0)) {
+            return response.status(400).json({ error: 'Either new columns or rename columns must be provided.' });
+        }
+
+        const sensor_table_name = `${sensor_brand}_${sensor_id}_${measurement_type}_${measurement_time_interval}`;
+
+        // Check if the sensor data table exists in the schema
+        const sensor_schema = await RDSdatabase(SENSOR_SCHEMA_TABLE)
+            .where({ sensor_table_name: sensor_table_name })
+            .first();
+
+        if (!sensor_schema) {
+            await closeAWSConnection(RDSdatabase);
+            return response.status(404).json({ error: 'Sensor not found.' });
+        }
+
+        // Add new columns to the sensor data table
+        await RDSdatabase.schema.alterTable(sensor_table_name, (table) => {
+            for (const [columnName, columnType] of Object.entries(new_columns_dict)) {
+                if (VALID_COL_TYPES.includes(columnType)) {
+                    table.specificType(columnName, columnType); 
+                } else {
+                    // TODO
+                }
+            }
+        });
+
+        // Rename columns 
+        await RDSdatabase.schema.alterTable(sensor_table_name, (table) => {
+            for (const [oldColumnName, newColumnName] of Object.entries(rename_column_dict)) {
+                table.renameColumn(oldColumnName, newColumnName);
+            }
+        });
+
+        // Update the schema in the SENSOR_SCHEMA_TABLE
+        const old_sensor_schema_entry = await RDSdatabase(SENSOR_SCHEMA_TABLE)
+            .select("sensor_data_schema")
+            .where({ sensor_table_name: sensor_table_name })
+            .first();
+
+        // Updating the schema for new columns
+        if (old_sensor_schema_entry.sensor_data_schema || old_sensor_schema_entry.sensor_data_schema === undefined) {
+            for (const [columnName, columnType] of Object.entries(new_columns_dict)) {
+                old_sensor_schema.sensor_data_schema[columnName] = columnType;
+            }
+
+            // Renaming columns in the schema
+            for (const [oldColumnName, newColumnName] of Object.entries(rename_column_dict)) {
+                if (old_sensor_schema.sensor_data_schema[oldColumnName]) {
+                    old_sensor_schema.sensor_data_schema[newColumnName] = old_sensor_schema.sensor_data_schema[oldColumnName];
+                    delete old_sensor_schema.sensor_data_schema[oldColumnName];
+                }
+            }
+        } else {
+            response.status(500).json({ message: 'Sensor schema could not be updated because the field is empty in \'SENSOR_SCHEMAS\'.' });
+        }
+
+        // Save the updated schema back to the SENSOR_SCHEMA_TABLE
+        await RDSdatabase(SENSOR_SCHEMA_TABLE)
+            .where({ sensor_table_name: sensor_data_table })
+            .update({ sensor_data_schema: old_sensor_schema.sensor_data_schema });
+
+        response.status(200).json({ message: 'Sensor schema updated successfully.' });
+
+    } catch (err) {
+        console.error('Error updating sensor schema:', err);
+
+        if (RDSdatabase) {
+            try {
+                await closeAWSConnection(RDSdatabase);
+            } catch (closeErr) {
+                console.error('Error closing database connection:', closeErr);
+            }
+        }
+
+        // Specific error handling for duplicate column names
+        if (err.code === 'ER_DUP_FIELDNAME') {
+            return response.status(400).json({ message: `One of the provided column names already exists in the table '${sensor_data_table}'.` });
+        }
+
+        // Generic error response
+        response.status(500).json({ message: 'An error occurred while updating the sensor schema.' });
+    }
+}
+
+
 
 module.exports = {
     getAllSensorSchemas,
-    addSensorSchema,
-    // updateSensorSchema // TODO
     getSensorSchema,
+    addSensorSchema,
+    updateSensorSchema,
     downloadSensorReadings,
 };

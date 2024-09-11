@@ -44,44 +44,6 @@ async function getAllSensors(request, response) {
 }
 
 
-// Get a particular sensor's meta data and information
-async function getSensorInfo(request, response) {
-    let RDSdatabase;
-
-    const { sensor_brand, sensor_id } = request.params;
-
-    if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
-        return response.status(404).json({ error: 'sensor_brand and sensor_id are required parameters.' });
-    }
-
-    try {
-        RDSdatabase = await AWSRDSInstanceConnection();
-
-        const sensor_info = await RDSdatabase(SENSOR_TABLE)
-            .select("*")
-            .where("sensor_brand", sensor_brand)
-            .andWhere("sensor_id", sensor_id);
-
-        await closeAWSConnection(RDSdatabase);
-
-        response.status(200).json(sensor_info);
-
-    } catch (err) {
-        console.error('Error fetching sensors:', err);
-
-        if (RDSdatabase) {
-            try {
-                await closeAWSConnection(RDSdatabase);
-            } catch (closeErr) {
-                console.error('Error closing database connection:', closeErr);
-            }
-        }
-
-        response.status(500).json({ message: 'An error occurred while fetching sensors' });
-    }
-}
-
-
 // Add a sensor 
 async function addNewSensor(request, response) {
     let RDSdatabase;
@@ -184,7 +146,7 @@ async function updateSensorLocation(request, response) {
 
         if (!sensorExists) {
             await closeAWSConnection(RDSdatabase);
-            return response.status(400).json({ error: 'Sensor not found.' });
+            return response.status(204).json({ error: 'Sensor not found.' });
         }
 
         // Update the sensor's location
@@ -284,6 +246,44 @@ async function deprecateSensor(request, response) {
 }
 
 
+// Get a particular sensor's meta data and information
+async function getSensorInfo(request, response) {
+    let RDSdatabase;
+
+    const { sensor_brand, sensor_id } = request.params;
+
+    if (!sensor_brand || sensor_brand === "" || !sensor_id || sensor_id === "") {
+        return response.status(400).json({ error: 'sensor_brand and sensor_id are required parameters.' });
+    }
+
+    try {
+        RDSdatabase = await AWSRDSInstanceConnection();
+
+        const sensor_info = await RDSdatabase(SENSOR_TABLE)
+            .select("*")
+            .where("sensor_brand", sensor_brand)
+            .andWhere("sensor_id", sensor_id);
+
+        await closeAWSConnection(RDSdatabase);
+
+        response.status(200).json(sensor_info);
+
+    } catch (err) {
+        console.error('Error fetching sensors:', err);
+
+        if (RDSdatabase) {
+            try {
+                await closeAWSConnection(RDSdatabase);
+            } catch (closeErr) {
+                console.error('Error closing database connection:', closeErr);
+            }
+        }
+
+        response.status(500).json({ message: 'An error occurred while fetching sensors' });
+    }
+}
+
+
 // Get all Sensors of the same brand and their information
 async function getSensorsByBrand(request, response) {
     let RDSdatabase;
@@ -291,7 +291,7 @@ async function getSensorsByBrand(request, response) {
     const { sensor_brand } = request.params;
 
     if (!sensor_brand || sensor_brand === "") {
-        return response.status(404).json({ error: 'sensor_brand is a required parameter.' });
+        return response.status(400).json({ error: 'sensor_brand is a required parameter.' });
     }
 
     try {

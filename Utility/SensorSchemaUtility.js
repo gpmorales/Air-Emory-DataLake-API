@@ -1,7 +1,7 @@
 const knex = require('knex');
 
-/* UTILITY FUNCTIONS */
 
+/* UTILITY FUNCTIONS */
 async function createMeasurementTable(database, tableName, schema) {
     try {
         const tableExists = await database.schema.hasTable(tableName);
@@ -49,16 +49,13 @@ function createPayload(request) {
     return {
         sensor_id: request.params.sensor_id,
         sensor_brand: request.params.sensor_brand,
+        sensor_data_schema: request.body.sensor_data_schema,
         measurement_type: request.params.measurement_type,
         measurement_time_interval: request.params.measurement_time_interval,
-        measurement_table_schema: request.body.measurement_table_schema,
         latitude: isNaN(parseFloat(request.params.latitude)) ? null : parseFloat(request.params.latitude),
         longitude: isNaN(parseFloat(request.params.longitude)) ? null : parseFloat(request.params.longitude),
     };
 }
 
 
-module.exports = {
-    createMeasurementTable,
-    createPayload,
-}
+module.exports = { createMeasurementTable, createPayload }

@@ -5,9 +5,9 @@ const SensorSchemaRouter = express.Router();
 const {
     getAllSensorSchemas,
     addSensorSchema,
-    // updateSensorSchema // TODO
     getSensorSchema,
     downloadSensorReadings,
+    // updateSensorSchema // TODO
 } = require("../Controllers/SensorSchemas.js");
 
 
@@ -16,7 +16,7 @@ const {
  * /api/v2/sensor-schemas:
  *   get:
  *     summary: Retrieve all sensors schemas 
- *     description: Fetch an array of all uploaded sensor measurement tables.
+ *     description: Fetch an array of all uploaded sensor data tables.
  *     tags:
  *       - Sensor Schemas
  *     responses:
@@ -35,18 +35,18 @@ const {
  *                   sensor_brand:
  *                     type: string
  *                     description: Brand of the sensor
- *                   measurement_table_name:
+ *                   sensor_table_name:
  *                     type: string
- *                     description: Table name for the sensor measurement table
+ *                     description: Table name for the sensor data table
+ *                   sensor_data_schema:
+ *                     type: object
+ *                     description: Schema for the sensors data
  *                   measurement_type:
  *                     type: string
  *                     description: Type of measurement the sensor performs
  *                   measurement_time_interval:
  *                     type: string
  *                     description: Time interval for sensor readings
- *                   measurement_table_schema:
- *                     type: object
- *                     description: Schema for the measurement table
  *       500:
  *         description: Server error
  */
@@ -93,11 +93,11 @@ SensorSchemaRouter.route("").get(getAllSensorSchemas);
  *           schema:
  *             type: object
  *             properties:
- *               measurement_table_schema:
+ *               sensor_data_schema:
  *                 type: object
  *                 additionalProperties:
  *                   type: string
- *                 description: Schema for the measurement table. Keys are column names, values are data types.
+ *                 description: Schema for the sensor's data table. Keys are column names, values are data types.
  *                 example:
  *                   temperature: "float"
  *                   humidity: "float"
@@ -148,18 +148,18 @@ SensorSchemaRouter.post(
  *                   sensor_brand:
  *                     type: string
  *                     description: Brand of the sensor
- *                   measurement_table_name:
+ *                   sensor_table_name:
  *                     type: string
- *                     description: Table name for the sensor measurement table
+ *                     description: Name for the sensor data table
+ *                   sensor_data_schema:
+ *                     type: object
+ *                     description: Schema for the sensors data table
  *                   measurement_type:
  *                     type: string
  *                     description: Type of measurement the sensor performs
  *                   measurement_time_interval:
  *                     type: string
  *                     description: Time interval for sensor readings
- *                   measurement_table_schema:
- *                     type: object
- *                     description: Schema for the measurement table
  *       500:
  *         description: Server error
  */

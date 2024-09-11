@@ -3,11 +3,12 @@ const express = require("express");
 const SensorRouter = express.Router();
 
 const {
-  getAllSensors,
-  addNewSensor, 
-  updateSensor, // TODO
-  getSensorInfo,
-  getSensorsByBrand
+    getAllSensors,
+    addNewSensor, 
+    updateSensorLocation, 
+    deprecateSensor,
+    getSensorInfo,
+    getSensorsByBrand
 } = require("../Controllers/Sensors.js");
 
 
@@ -56,7 +57,7 @@ const {
  *                     description: The previous date the sensors location was updated
  *                   date_uploaded:
  *                     type: boolean
- *                     description: The creation date of a measurement table associated with this sensor 
+ *                     description: The creation date of a data table associated with this sensor 
  *                   is_active:
  *                     type: boolean
  *                     description: Whether the sensor is currently active
@@ -135,7 +136,170 @@ SensorRouter.route("").get(getAllSensors);
  *                   type: string
  *                   description: Error message describing the issue.
  */
-SensorRouter.route("/:sensor_brand/:sensor_id").get(addNewSensor);
+SensorRouter.route("/:sensor_brand/:sensor_id").post(addNewSensor);
+
+
+/**
+ * @swagger
+ * /api/v2/sensors/{sensor_brand}/{sensor_id}/location:
+ *   put:
+ *     summary: Update sensor location
+ *     description: Update the location (latitude and longitude) of a specific sensor.
+ *     tags:
+ *       - Sensors
+ *     parameters:
+ *       - in: path
+ *         name: sensor_brand
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor
+ *       - in: path
+ *         name: sensor_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the sensor
+ *       - in: query
+ *         name: new_latitdue
+ *         required: true
+ *         schema:
+ *           type: number
+ *           minimum: -90
+ *           maximum: 90
+ *         description: The new latitude of the sensor (note the typo in 'latitude')
+ *       - in: query
+ *         name: new_longitude
+ *         required: true
+ *         schema:
+ *           type: number
+ *           minimum: -180
+ *           maximum: 180
+ *         description: The new longitude of the sensor
+ *     responses:
+ *       200:
+ *         description: Sensor location updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sensor location updated successfully.
+ *                 updated:
+ *                   type: object
+ *                   properties:
+ *                     sensor_brand:
+ *                       type: string
+ *                     sensor_id:
+ *                       type: string
+ *                     new_latitude:
+ *                       type: number
+ *                     new_longitude:
+ *                       type: number
+ *                     previous_latitude:
+ *                       type: number
+ *                     previous_longitude:
+ *                       type: number
+ *       400:
+ *         description: Bad request - missing or invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: sensor_brand and sensor_id are required parameters.
+ *       204:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Sensor not found.
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: An error occurred while updating the sensor location
+ */
+SensorRouter.route("/:sensor_brand/:sensor_id/location").put(updateSensorLocation);
+
+
+/**
+ * @swagger
+ * /api/v2/sensors/{sensor_brand}/{sensor_id}/deprecate:
+ *   put:
+ *     summary: Deprecate a sensor
+ *     description: Flag a sensor as inactive without removing its data from the database.
+ *     tags:
+ *       - Sensors
+ *     parameters:
+ *       - in: path
+ *         name: sensor_brand
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor
+ *       - in: path
+ *         name: sensor_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the sensor
+ *     responses:
+ *       200:
+ *         description: Sensor successfully marked as inactive
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sensor successfully marked as inactive.
+ *       400:
+ *         description: Bad request - missing or invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: sensor_brand and sensor_id are required parameters.
+ *       204:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Sensor not found.
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: An error occurred while deprecating the sensor
+ */
+SensorRouter.route("/:sensor_brand/:sensor_id/deprecate").delete(deprecateSensor);
 
 
 /**
@@ -183,7 +347,7 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(addNewSensor);
  *                     description: The previous date the sensors location was updated
  *                   date_uploaded:
  *                     type: boolean
- *                     description: The creation date of a measurement table associated with this sensor 
+ *                     description: The creation date of a data table associated with this sensor 
  *                   is_active:
  *                     type: boolean
  *                     description: Whether the sensor is currently active
@@ -245,7 +409,7 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
  *                     description: The previous date the sensors location was updated
  *                   date_uploaded:
  *                     type: boolean
- *                     description: The creation date of a measurement table associated with this sensor 
+ *                     description: The creation date of a data table associated with this sensor 
  *                   is_active:
  *                     type: boolean
  *                     description: Whether the sensor is currently active

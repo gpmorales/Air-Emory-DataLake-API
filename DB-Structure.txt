@@ -47,10 +47,10 @@ COLUMN NAME		             DESCRIPTION
 id                           (Unique) identifier
 sensor_id	                 The unique ID of the sensor.
 sensor_brand	             The brand of the sensor.
-measurement_table_name	     (Unique) A unique name for each data/measurement table assoc with this sensor configuration
+sensor_table_name	     (Unique) A unique name for each data/measurement table assoc with this sensor configuration
+sensor_data_schema     JSON object defining the schema for the measurement table for this specific sensor configuration.
 measurement_type	         Specifies the type of data (RAW, CORRECTED).
 measurement_time_interval    Specifies the interval of measurements (HOURLY, DAILY, or NIETHER).
-measurement_table_schema     JSON object defining the schema for the measurement table for this specific sensor configuration.
 
 
 // Raw has no time interval associated (always none)
@@ -60,11 +60,11 @@ CREATE TABLE SENSOR_SCHEMAS (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sensor_id VARCHAR(255) NOT NULL,
     sensor_brand VARCHAR(255) NOT NULL,
-    measurement_table_name VARCHAR(255) NOT NULL,
-    measurement_table_schema JSON,
+    sensor_table_name VARCHAR(255) NOT NULL,
+    sensor_data_schema JSON,
     measurement_type VARCHAR(255) NOT NULL,
     time_interval VARCHAR(50) NOT NULL,
-    CONSTRAINT unique_measurement_table UNIQUE (measurement_table_name),
+    CONSTRAINT unique_measurement_table UNIQUE (sensor_table_name),
     CONSTRAINT fk_sensor FOREIGN KEY (sensor_brand, sensor_id) 
         REFERENCES SENSORS(sensor_brand, sensor_id)
 );
