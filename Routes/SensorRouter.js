@@ -5,9 +5,9 @@ const SensorRouter = express.Router();
 const {
     getAllSensors,
     addNewSensor, 
+    getSensorInfo,
     updateSensorLocation, 
     deprecateSensor,
-    getSensorInfo,
     getSensorsByBrand
 } = require("../Controllers/Sensors.js");
 
@@ -32,26 +32,18 @@ const {
  *                 properties:
  *                   sensor_id:
  *                     type: string
- *                     description: Unique identifier for the sensor
+ *                     description: Unique identifier for the sensor (Serial Number)
  *                   sensor_brand:
  *                     type: string
  *                     description: Brand of the sensor
- *                   latitude:
+ *                   sensor_latitude:
  *                     type: number
  *                     format: float
  *                     description: Latitude coordinate of the sensor
- *                   longitude:
+ *                   sensor_longitude:
  *                     type: number
  *                     format: float
  *                     description: Longitude coordinate of the sensor
- *                   last_latitude:
- *                     type: number
- *                     format: float
- *                     description: Latitude coordinate of the sensor's last location
- *                   last_longitude:
- *                     type: number
- *                     format: float
- *                     description: Longitude coordinate of the sensor's last location
  *                   last_location_update:
  *                     type: boolean
  *                     description: The previous date the sensors location was updated
@@ -77,26 +69,26 @@ SensorRouter.route("").get(getAllSensors);
  *       - Sensors
  *     parameters:
  *       - in: path
- *         name: sensor_id
- *         required: true
- *         schema:
- *           type: string
- *         description: Unique identifier for the sensor.
- *       - in: path
  *         name: sensor_brand
  *         required: true
  *         schema:
  *           type: string
  *         description: Brand of the sensor.
- *       - in: query
- *         name: latitude
+ *       - in: path
+ *         name: sensor_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Unique identifier for the sensor (Serial Number)
+ *       - in: query 
+ *         name: sensor_latitude
  *         required: false
  *         schema:
  *           type: number
  *           format: float
  *         description: Latitude coordinate of the sensor. Optional but must be a valid float if provided.
  *       - in: query
- *         name: longitude
+ *         name: sensor_longitude
  *         required: false
  *         schema:
  *           type: number
@@ -141,6 +133,76 @@ SensorRouter.route("/:sensor_brand/:sensor_id").post(addNewSensor);
 
 /**
  * @swagger
+ * /api/v2/sensors/{sensor_brand}/{sensor_id}:
+ *   get:
+ *     summary: Retrieve a sensor's metadata
+ *     description: Fetches a sensor's info including brand, ID, location, and other metadata.
+ *     tags:
+ *       - Sensors
+ *     parameters:
+ *       - in: path
+ *         name: sensor_brand
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Brand of the sensor.
+ *       - in: path
+ *         name: sensor_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Unique identifier for the sensor (Serial Number)
+ *     responses:
+ *       200:
+ *         description: An array of sensors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   sensor_id:
+ *                     type: string
+ *                     description: Unique identifier for the sensor (Serial Number)
+ *                   sensor_brand:
+ *                     type: string
+ *                     description: Brand of the sensor.
+ *                   sensor_latitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Latitude coordinate of the sensor.
+ *                   sensor_longitude:
+ *                     type: number
+ *                     format: float
+ *                     description: Longitude coordinate of the sensor.
+ *                   last_location_update:
+ *                     type: string
+ *                     format: date-time
+ *                     description: The previous date the sensor's location was updated.
+ *                   date_uploaded:
+ *                     type: string
+ *                     format: date-time
+ *                     description: The creation date of a data table associated with this sensor.
+ *                   is_active:
+ *                     type: boolean
+ *                     description: Whether the sensor is currently active.
+ *       500:
+ *         description: Server error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: Error message describing the server issue.
+ */
+SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
+
+
+/**
+ * @swagger
  * /api/v2/sensors/{sensor_brand}/{sensor_id}/location:
  *   put:
  *     summary: Update sensor location
@@ -159,15 +221,15 @@ SensorRouter.route("/:sensor_brand/:sensor_id").post(addNewSensor);
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the sensor
+ *         description: Unique identifier for the sensor (Serial Number)
  *       - in: query
- *         name: new_latitdue
+ *         name: new_latitude
  *         required: true
  *         schema:
  *           type: number
  *           minimum: -90
  *           maximum: 90
- *         description: The new latitude of the sensor (note the typo in 'latitude')
+ *         description: The new latitude of the sensor
  *       - in: query
  *         name: new_longitude
  *         required: true
@@ -239,7 +301,7 @@ SensorRouter.route("/:sensor_brand/:sensor_id/location").put(updateSensorLocatio
 /**
  * @swagger
  * /api/v2/sensors/{sensor_brand}/{sensor_id}/deprecate:
- *   put:
+ *   delete:
  *     summary: Deprecate a sensor
  *     description: Flag a sensor as inactive without removing its data from the database.
  *     tags:
@@ -256,7 +318,7 @@ SensorRouter.route("/:sensor_brand/:sensor_id/location").put(updateSensorLocatio
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the sensor
+ *         description: Unique identifier for the sensor (Serial Number)
  *     responses:
  *       200:
  *         description: Sensor successfully marked as inactive
@@ -304,61 +366,6 @@ SensorRouter.delete("/:sensor_brand/:sensor_id/deprecate", deprecateSensor);
 
 /**
  * @swagger
- * /api/v2/sensors/{sensor_brand}/{sensor_id}:
- *   get:
- *     summary: Retrieve a sensors meta data
- *     description: Fetches a sensors info including brand, id, location, and other meta data
- *     tags:
- *       - Sensors
- *     responses:
- *       200:
- *         description: An array of sensors
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   sensor_id:
- *                     type: string
- *                     description: Unique identifier for the sensor
- *                   sensor_brand:
- *                     type: string
- *                     description: Brand of the sensor
- *                   latitude:
- *                     type: number
- *                     format: float
- *                     description: Latitude coordinate of the sensor
- *                   longitude:
- *                     type: number
- *                     format: float
- *                     description: Longitude coordinate of the sensor
- *                   last_latitude:
- *                     type: number
- *                     format: float
- *                     description: Latitude coordinate of the sensor's last location
- *                   last_longitude:
- *                     type: number
- *                     format: float
- *                     description: Longitude coordinate of the sensor's last location
- *                   last_location_update:
- *                     type: boolean
- *                     description: The previous date the sensors location was updated
- *                   date_uploaded:
- *                     type: boolean
- *                     description: The creation date of a data table associated with this sensor 
- *                   is_active:
- *                     type: boolean
- *                     description: Whether the sensor is currently active
- *       500:
- *         description: Server error
- */
-SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
-
-
-/**
- * @swagger
  * /api/v2/sensors/{sensor_brand}:
  *   get:
  *     summary: Retrieve all sensors of the specified brand type
@@ -384,26 +391,18 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
  *                 properties:
  *                   sensor_id:
  *                     type: string
- *                     description: Unique identifier for the sensor
+ *                     description: Unique identifier for the sensor (Serial Number)
  *                   sensor_brand:
  *                     type: string
  *                     description: Brand of the sensor
- *                   latitude:
+ *                   sensor_latitude:
  *                     type: number
  *                     format: float
  *                     description: Latitude coordinate of the sensor
- *                   longitude:
+ *                   sensor_longitude:
  *                     type: number
  *                     format: float
  *                     description: Longitude coordinate of the sensor
- *                   last_latitude:
- *                     type: number
- *                     format: float
- *                     description: Latitude coordinate of the sensor's last location
- *                   last_longitude:
- *                     type: number
- *                     format: float
- *                     description: Longitude coordinate of the sensor's last location
  *                   last_location_update:
  *                     type: boolean
  *                     description: The previous date the sensors location was updated
