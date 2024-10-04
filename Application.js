@@ -12,6 +12,7 @@ app.use(express.json());
 // Base URI and Router to map endpoints is initialized here
 app.use("/api/v2/sensors", SensorRouter);
 app.use("/api/v2/sensor-schemas", SensorSchemaRouter);
+app.use("/api/v2/readings", SensorSchemaRouter);
 
 // Serve Swagger documentation
 const options = {
@@ -37,12 +38,17 @@ const options = {
       {
         name: "Sensor Schemas",
         description: "API endpoints for sensor schema operations"
+      },
+      {
+        name: "Readings",
+        description: "API endpoints for sensor data operations"
       }
     ],
   },
   apis: [
     "./Routes/SensorRouter.js", 
-    "./Routes/SensorSchemaRouter.js"
+    "./Routes/SensorSchemaRouter.js",
+    "./Routes/MeasurementRouter.js"
   ],
 };
 
