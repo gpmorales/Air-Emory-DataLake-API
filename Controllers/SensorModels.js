@@ -32,8 +32,10 @@ async function getAllSensorModels(request, response) {
 
         await closeAWSConnection(RDSdatabase);
 
-        response.status(200).json(all_sensor_models.length > 0 ? 
-            all_sensor_models : { message: "No Sensor Models have been registered at this moment." });
+        response.status(200).json({
+            data: all_sensor_models,
+            message: all_sensor_models.length ? null : "No Sensor Models have been registered at this moment."
+        });
 
     } catch (err) {
         console.error('Error fetching sensor models:', err);
@@ -80,8 +82,9 @@ async function addSensorModel(request, response) {
             measurement_time_interval,
         } = value;
 
-        let sncr_id = sensor_id;
-        let sncr_brand = sensor_brand;
+        // For http response
+        sncr_id = sensor_id;
+        sncr_brand = sensor_brand;
 
         const sensor_table_name = `${sensor_brand}_${sensor_id}_${measurement_model || "RAW-MODEL"}_${measurement_type}_${measurement_time_interval}`;
 
@@ -133,6 +136,8 @@ async function addSensorModel(request, response) {
 
 // Get the Schema of a particular table
 async function getSensorModelDataSchema(request, response) {
+    let RDSdatabase;
+
     // Extract parameters from the request
     const { 
         sensor_brand,
@@ -178,7 +183,7 @@ async function getSensorModelDataSchema(request, response) {
         }, {});
 
         if (Object.keys(tableSchema).length === 0) {
-            response.status(500).json({ error: `The Sensor associated with this model has NOT been registered yet. Register a sensor of brand '${sensor_brand}' and serial number '${sensor_id}' first using the POST '/api/v2/sensors{sensor_brand}/{sensor_id}' endpoint`});
+            return response.status(500).json({ error: `The Sensor associated with this model has NOT been registered yet. Register a sensor of brand '${sensor_brand}' and serial number '${sensor_id}' first using the POST '/api/v2/sensors{sensor_brand}/{sensor_id}' endpoint`});
         }
 
         response.status(200).json(tableSchema);
@@ -296,13 +301,12 @@ async function downloadSensorModelReadings(request, response) {
         response.send(csv);
 
     } catch (err) {
-        console.error("Error downloading sensor data: ", err);
-        response.status(500).json({ error: `Error processing your request: ${err.sqlMessage}` });
-    } finally {
+
         // Ensure the connection is closed in case of an error
         if (RDSdatabase) {
             await closeAWSConnection(RDSdatabase);
         }
+        response.status(500).json({ error: `Error processing your request: ${err.sqlMessage}` });
     }
 }
 

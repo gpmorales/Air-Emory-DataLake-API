@@ -25,8 +25,10 @@ async function getAllSensors(request, response) {
 
         await closeAWSConnection(RDSdatabase);
 
-        response.status(200).json(sensors.length > 0 ? 
-            sensors : { message: "No Sensors have been registered at this moment." });
+        response.status(200).json({
+            data: sensors,
+            message: sensors.length ? null : "No Sensors have been registered at this moment."
+        });
 
     } catch (err) {
         console.error('Error fetching sensors:', err);
@@ -98,9 +100,9 @@ async function addNewSensor(request, response) {
     } catch (err) {
         console.error('Error adding sensor:', err);
         if (err.code === 'ER_DUP_ENTRY') {
-            response.status(400).json({ error: `Error: A sensor with ID '${given_sensor_id}' and brand '${given_sensor_brand}' already exists.`});
+            return response.status(400).json({ error: `Error: A sensor with ID '${given_sensor_id}' and brand '${given_sensor_brand}' already exists.`});
         }
-        response.status(500).json({ error: `An error occurred while adding the sensor: ` + err.sqlMessage });
+        return response.status(500).json({ error: `An error occurred while adding the sensor: ` + err.sqlMessage });
     } finally {
         if (RDSdatabase) {
             try {
@@ -216,8 +218,8 @@ async function updateSensorLocation(request, response) {
                 sensor_id,
                 new_latitude: newLatitude,
                 new_longitude: newLongitude,
-                previous_latitude: sensorExists.latitude,
-                previous_longitude: sensorExists.longitude
+                previous_latitude: sensorExists.sensor_latitude,
+                previous_longitude: sensorExists.sensor_longitude
             }
         });
 
@@ -308,6 +310,12 @@ async function getSensorsByBrand(request, response) {
             .where("sensor_brand", request.params.sensor_brand);
 
         await closeAWSConnection(RDSdatabase);
+
+         if (!brand_sensors || brand_sensors.length === 0) {
+            return response.status(500).json({ 
+                error: `No sensors found for brand '${sensor_brand}'` 
+            });
+        }
 
         response.status(200).json(brand_sensors);
 
