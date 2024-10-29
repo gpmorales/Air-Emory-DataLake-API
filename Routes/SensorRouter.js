@@ -1,4 +1,3 @@
-// Handles Sensor Endpoint Routing
 const express = require("express");
 const SensorRouter = express.Router();
 
@@ -54,7 +53,15 @@ const {
  *                     type: boolean
  *                     description: Whether the sensor is currently active
  *       500:
- *         description: Server error
+ *         description: Server error. An error occurred fetching sensors.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Error message describing the issue.
  */
 SensorRouter.route("").get(getAllSensors);
 
@@ -104,7 +111,7 @@ SensorRouter.route("").get(getAllSensors);
  *               properties:
  *                 message:
  *                   type: string
- *                   description: Success message.
+ *                   example: Success message.
  *       400:
  *         description: Bad request. Validation error or sensor already exists.
  *         content:
@@ -116,7 +123,7 @@ SensorRouter.route("").get(getAllSensors);
  *                   type: array
  *                   items:
  *                     type: string
- *                   description: Array of validation error messages or sensor registration error.
+ *                   example: Array of validation error messages or sensor registration error.
  *       500:
  *         description: Server error. An error occurred while adding the sensor.
  *         content:
@@ -124,9 +131,9 @@ SensorRouter.route("").get(getAllSensors);
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 error:
  *                   type: string
- *                   description: Error message describing the issue.
+ *                   example: Error message describing the issue.
  */
 SensorRouter.route("/:sensor_brand/:sensor_id").post(addNewSensor);
 
@@ -194,9 +201,9 @@ SensorRouter.route("/:sensor_brand/:sensor_id").post(addNewSensor);
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 error:
  *                   type: string
- *                   description: Error message describing the server issue.
+ *                   example: Error message describing the server issue.
  */
 SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
 
@@ -274,16 +281,6 @@ SensorRouter.route("/:sensor_brand/:sensor_id").get(getSensorInfo);
  *                 error:
  *                   type: string
  *                   example: sensor_brand and sensor_id are required parameters.
- *       204:
- *         description: Sensor not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Sensor not found.
  *       500:
  *         description: Internal server error
  *         content:
@@ -413,7 +410,15 @@ SensorRouter.delete("/:sensor_brand/:sensor_id/deprecate", deprecateSensor);
  *                     type: boolean
  *                     description: Whether the sensor is currently active
  *       500:
- *         description: Server error
+ *         description: Server error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Error message describing the server issue.
  */
 SensorRouter.route("/:sensor_brand").get(getSensorsByBrand);
 

@@ -1,12 +1,14 @@
-// Handles Sensor Data Routing
 const express = require("express");
-const SensorDataRouter = express.Router();
+const DataRouter = express.Router();
+
 const {
-    querySensorReadingsToCSV,
-    querySensorReadingsToJSON,
-    insertJSONSensorReadings,
-    insertCSVsensorReadings
-} = require("../Controllers/SensorDataController");
+    exportSensorDataReadingsToCSV,
+    insertSensorDataReadingsFromCSV,
+    fetchSensorDataReadings,
+    insertSensorDataReadings,
+    getLastDataReading
+} = require("../Controllers/DataReadings.js");
+
 
 /**
  * @swagger
@@ -15,38 +17,40 @@ const {
  *     summary: Get sensor readings in CSV format
  *     description: Fetch sensor data for a specific sensor within a date range and return as CSV.
  *     tags:
- *       - Readings
+ *       - AQ Data Readings
  *     parameters:
- *       - name: sensor_brand
- *         in: path
+ *       - in: path
+ *         name: sensor_brand
  *         required: true
  *         schema:
  *           type: string
  *         description: The brand of the sensor.
- *       - name: sensor_id
- *         in: path
+ *       - in: path
+ *         name: sensor_id
  *         required: true
  *         schema:
  *           type: string
  *         description: The unique ID of the sensor.
- *       - name: measurement_model
- *         in: path
- *         required: true
+ *       - in: path
+ *         name: measurement_model
+ *         required: false 
  *         schema:
  *           type: string
  *         description: The model of the sensor measurement.
- *       - name: measurement_type
- *         in: path
+ *       - in: path
+ *         name: measurement_type
  *         required: true
  *         schema:
  *           type: string
- *         description: The type of measurement taken by the sensor.
- *       - name: measurement_time_interval
- *         in: path
+ *           enum: [RAW, CORRECTED]
+ *         description: This measurements air quality metric type (RAW or CORRECTED)
+ *       - in: path
+ *         name: measurement_time_interval
  *         required: true
  *         schema:
  *           type: string
- *         description: The time interval of the measurements.
+ *           enum: [HOURLY, DAILY, OTHER]
+ *         description: The measurements recorded time interval (HOURLY, DAILY, or OTHER if RAW data) 
  *       - name: start_date
  *         in: query
  *         required: true
@@ -90,6 +94,8 @@ const {
  *                   type: string
  *                   description: Error message describing the issue.
  */
+DataRouter.get("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", exportSensorDataReadingsToCSV);
+
 
 /**
  * @swagger
@@ -98,9 +104,54 @@ const {
  *     summary: Get sensor readings in JSON format
  *     description: Fetch sensor data for a specific sensor within a date range and return as JSON.
  *     tags:
- *       - Readings
+ *       - AQ Data Readings
  *     parameters:
- *       ...
+ *       - name: sensor_brand
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor.
+ *       - name: sensor_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique ID of the sensor.
+ *       - name: measurement_model
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The model of the sensor measurement.
+ *       - in: path
+ *         name: measurement_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RAW, CORRECTED]
+ *         description: This measurements air quality metric type (RAW or CORRECTED)
+ *       - in: path
+ *         name: measurement_time_interval
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [HOURLY, DAILY, OTHER]
+ *         description: The measurements recorded time interval (HOURLY, DAILY, or OTHER if RAW data) 
+ *       - name: start_date
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for fetching data.
+ *       - name: end_date
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for fetching data.
  *     responses:
  *       200:
  *         description: JSON array containing sensor readings.
@@ -131,6 +182,8 @@ const {
  *                   type: string
  *                   description: Detailed error message about the server issue.
  */
+DataRouter.get("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", fetchSensorDataReadings);
+
 
 /**
  * @swagger
@@ -139,9 +192,40 @@ const {
  *     summary: Insert sensor readings via JSON
  *     description: Insert new sensor data by providing a JSON array.
  *     tags:
- *       - Readings
+ *       - AQ Data Readings
  *     parameters:
- *       ...
+ *       - name: sensor_brand
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor.
+ *       - name: sensor_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique ID of the sensor.
+ *       - name: measurement_model
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The model of the sensor measurement.
+ *       - in: path
+ *         name: measurement_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RAW, CORRECTED]
+ *         description: This measurements air quality metric type (RAW or CORRECTED)
+ *       - in: path
+ *         name: measurement_time_interval
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [HOURLY, DAILY, OTHER]
+ *         description: The measurements recorded time interval (HOURLY, DAILY, or OTHER if RAW data) 
  *     requestBody:
  *       required: true
  *       content:
@@ -182,6 +266,8 @@ const {
  *                   type: string
  *                   description: Detailed error message regarding the server issue.
  */
+DataRouter.post("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", insertSensorDataReadings);
+
 
 /**
  * @swagger
@@ -190,9 +276,40 @@ const {
  *     summary: Insert sensor readings via CSV
  *     description: Insert new sensor data by uploading a CSV file.
  *     tags:
- *       - Readings
+ *       - AQ Data Readings
  *     parameters:
- *       ...
+ *       - name: sensor_brand
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The brand of the sensor.
+ *       - name: sensor_id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique ID of the sensor.
+ *       - name: measurement_model
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The model of the sensor measurement.
+ *       - in: path
+ *         name: measurement_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RAW, CORRECTED]
+ *         description: This measurements air quality metric type (RAW or CORRECTED)
+ *       - in: path
+ *         name: measurement_time_interval
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [HOURLY, DAILY, OTHER]
+ *         description: The measurements recorded time interval (HOURLY, DAILY, or OTHER if RAW data) 
  *     requestBody:
  *       required: true
  *       content:
@@ -235,6 +352,7 @@ const {
  *                   type: string
  *                   description: Detailed error message regarding the server issue.
  */
+DataRouter.post("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", insertSensorDataReadingsFromCSV);
 
 
-module.exports = SensorDataRouter;
+module.exports = DataRouter;

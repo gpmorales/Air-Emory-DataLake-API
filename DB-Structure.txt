@@ -36,12 +36,13 @@ CREATE TABLE SENSORS (
 ----------------------------------------------------------------------------------------------------------------------------------------------------|
 
 
-/API/V1/SENSOR-SCHEMAS
+/API/V1/SENSOR-MODELS
 
-Table Name: SENSOR_SCHEMAS (track sensor measurement tables and table schemas since multiple sensors...
-                            ... will have diff tables for storing diff data)
+Table Name: SENSOR_MODELS (track sensor models, which includes measurement/data schema, model type, data type, and model name since multiple sensors...
+                            will have different tables for storing raw data, corrected hourly, corrected daily, as well as use different models for 
+                            the bias correction)
 
-SENSORS_MEASUREMENTS schema:
+SENSOR_MODELS schema:
 COLUMN NAME		             DESCRIPTION
 id                           (Unique) identifier
 sensor_id	                 The unique ID of the sensor.
@@ -50,13 +51,13 @@ sensor_table_name	         (Unique) A unique name for each data/measurement tabl
 sensor_data_schema           JSON object defining the schema for the measurement table for this specific sensor configuration.
 measurement_model            For Corrected Data, the model applied on the measurements
 measurement_type	         Specifies the type of data (RAW, CORRECTED).
-measurement_time_interval    Specifies the interval of measurements (HOURLY, DAILY, or NIETHER).
+measurement_time_interval    Specifies the interval of measurements (HOURLY, DAILY, or OTHER).
 
 
-// Raw has no time interval associated (always none)
+// Raw has no time interval associated (always OTHER)
 // Existing sensor tables/schemas CAN BE updated
 
-CREATE TABLE SENSOR_SCHEMAS (
+CREATE TABLE SENSOR_MODELS (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sensor_id VARCHAR(255) NOT NULL,
     sensor_brand VARCHAR(255) NOT NULL,
@@ -74,7 +75,7 @@ CREATE TABLE SENSOR_SCHEMAS (
 NOTES:
 -> measurement_table_name = sensor_brand + '_' + sensor_id + '_' + data_type + '_' + time_interval + '_' + model_name
 
--> When new data is uploaded, a new sensor configuration is added to the Sensors Schema table,
+-> When new data is uploaded, a new sensor configuration is added to the Sensor Models table,
    a corresponding 'Measurements' table is created. For instance, if the table 'airly_00858_corrected_daily' already exists
    but data in an hourly format also needs to be uploaded from the same sensor, a new table called 'airly_00858_corrected_hourly'
    is generated and linked with an entry in the Sensors table like this:

@@ -3,7 +3,7 @@ const knex = require('knex');
 
 /* UTILITY FUNCTIONS */
 
-async function createMeasurementTable(database, tableName, schema) {
+async function createSensorMeasurementTable(database, tableName, schema) {
     try {
         const tableExists = await database.schema.hasTable(tableName);
 
@@ -85,7 +85,7 @@ async function getDateColumn(RDSdatabase, measurement_table_name) {
     
     // Assert that there is exactly one date column
     if (!dateColumns || dateColumns.length !== 1) {
-        throw new Error('Expected exactly one date or datetime column.');
+        return undefined;
     }
 
     return dateColumns[0].COLUMN_NAME; // Return the column name
@@ -102,4 +102,4 @@ function compareSets(setA, setB) {
 }
 
 
-module.exports = { createMeasurementTable, createPayload, getDateColumn, compareSets }
+module.exports = { createSensorMeasurementTable, createPayload, getDateColumn, compareSets }
