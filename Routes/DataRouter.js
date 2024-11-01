@@ -1,12 +1,14 @@
 const express = require("express");
 const DataRouter = express.Router();
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
 
 const {
-    exportSensorDataReadingsToCSV,
-    insertSensorDataReadingsFromCSV,
+    exportSensorDataToCSV,
+    insertSensorDataFromCSV,
     fetchSensorDataReadings,
     insertSensorDataReadings,
-    getLastDataReading
+    getLastDataReading,
 } = require("../Controllers/DataReadings.js");
 
 
@@ -36,7 +38,7 @@ const {
  *         required: false 
  *         schema:
  *           type: string
- *         description: The model of the sensor measurement.
+ *         description: The model of the sensor measurement. (Use 'RAW_MODEL' when querying for raw data)
  *       - in: path
  *         name: measurement_type
  *         required: true
@@ -94,7 +96,7 @@ const {
  *                   type: string
  *                   description: Error message describing the issue.
  */
-DataRouter.get("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", exportSensorDataReadingsToCSV);
+DataRouter.get("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", exportSensorDataToCSV);
 
 
 /**
@@ -123,7 +125,7 @@ DataRouter.get("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_ty
  *         required: true
  *         schema:
  *           type: string
- *         description: The model of the sensor measurement.
+ *         description: The model of the sensor measurement. (Use 'RAW_MODEL' when querying for raw data)
  *       - in: path
  *         name: measurement_type
  *         required: true
@@ -211,7 +213,7 @@ DataRouter.get("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_t
  *         required: true
  *         schema:
  *           type: string
- *         description: The model of the sensor measurement.
+ *         description: The model of the sensor measurement. (Use 'RAW_MODEL' when querying for raw data)
  *       - in: path
  *         name: measurement_type
  *         required: true
@@ -295,7 +297,7 @@ DataRouter.post("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_
  *         required: true
  *         schema:
  *           type: string
- *         description: The model of the sensor measurement.
+ *         description: The model of the sensor measurement. (Use 'RAW_MODEL' when querying for raw data)
  *       - in: path
  *         name: measurement_type
  *         required: true
@@ -352,7 +354,100 @@ DataRouter.post("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_
  *                   type: string
  *                   description: Detailed error message regarding the server issue.
  */
-DataRouter.post("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", insertSensorDataReadingsFromCSV);
+DataRouter.post("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval",
+    upload.single('file'),
+    insertSensorDataFromCSV);
+
+
+/**
+* @swagger
+* /api/v2/readings/last/{sensor_brand}/{sensor_id}/{measurement_model}/{measurement_type}/{measurement_time_interval}:
+*   get:
+*     summary: Get latest sensor reading
+*     description: Retrieves the most recent reading from a specific sensor's data table
+*     tags:
+*       - AQ Data Readings
+*     parameters:
+*       - name: sensor_brand
+*         in: path
+*         required: true
+*         schema:
+*           type: string
+*         description: The brand of the sensor.
+*       - name: sensor_id
+*         in: path
+*         required: true
+*         schema:
+*           type: string
+*         description: The unique ID of the sensor.
+*       - name: measurement_model
+*         in: path
+*         required: true
+*         schema:
+*           type: string
+*         description: The model of the sensor measurement. (Use 'RAW_MODEL' when querying for raw data)
+*       - in: path
+*         name: measurement_type
+*         required: true
+*         schema:
+*           type: string
+*           enum: [RAW, CORRECTED]
+*         description: This measurements air quality metric type (RAW or CORRECTED)
+*       - in: path
+*         name: measurement_time_interval
+*         required: true
+*         schema:
+*           type: string
+*           enum: [HOURLY, DAILY, OTHER]
+*         description: The measurements recorded time interval (HOURLY, DAILY, or OTHER if RAW data) 
+*     responses:
+*       200:
+*         description: Successfully retrieved latest sensor reading
+*         content:
+*           application/json:
+*             schema:
+*               type: array
+*               items:
+*                 type: object
+*                 properties:
+*                   date:
+*                     type: string
+*                     format: date-time
+*                     description: Timestamp of the reading
+*                   pm25:
+*                     type: number
+*                     description: PM2.5 reading
+*                   pm10:
+*                     type: number
+*                     description: PM10 reading
+*                   temperature:
+*                     type: number
+*                     description: Temperature reading
+*                   humidity:
+*                     type: number
+*                     description: Humidity reading
+*       400:
+*         description: Bad request. Invalid parameters or table doesn't exist.
+*         content:
+*           application/json:
+*             schema:
+*               type: object
+*               properties:
+*                 error:
+*                   type: string
+*                   description: Error message explaining the issue
+*       500:
+*         description: Server error while fetching data
+*         content:
+*           application/json:
+*             schema:
+*               type: object
+*               properties:
+*                 error:
+*                   type: string
+*                   description: Internal server error message
+*/
+DataRouter.get("/last/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval", getLastDataReading);
 
 
 module.exports = DataRouter;

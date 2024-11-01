@@ -18,7 +18,7 @@ async function RDSInstanceConnection() {
                 password: password,
                 database: aqDatabase,
                 port: 3306,
-                timezone: "+04:00",
+                timezone: "+00:00",
             },
         });
 

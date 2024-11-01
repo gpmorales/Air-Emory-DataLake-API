@@ -1,7 +1,5 @@
-const { RDSInstanceConnection, closeAWSConnection, compareSets } = require("../Database-Config/RDSInstanceConnection");
-const { getDateColumn } = require("../Utility/SensorSchemaUtility.js")
-const multer = require("multer");
-const upload = multer({ storage: multer.memoryStorage() });
+const { RDSInstanceConnection, closeAWSConnection } = require("../Database-Config/RDSInstanceConnection");
+const { getDateColumn, compareSets } = require("../Utility/SensorSchemaUtility.js")
 const { Parser } = require('json2csv');
 const csv = require("csv-parser");
 
@@ -10,7 +8,7 @@ const MEASUREMENT_TIME_INTERVALS = ["HOURLY", "DAILY", "OTHER"];
 
 
 // GET data via date queries (as CSV)
-async function exportSensorDataReadingsToCSV(request, response) {
+async function exportSensorDataToCSV(request, response) {
     let RDSdatabase;
 
     // Extract parameters from the request
@@ -22,10 +20,23 @@ async function exportSensorDataReadingsToCSV(request, response) {
         measurement_time_interval
     } = request.params;
 
-    const { 
+    let { 
         start_date,
         end_date, 
     } = request.query
+
+    // Make sure start_date and end_date are in DATETIME format yyyy-mm-dd hh:mm:ss
+    if (start_date.includes("/")) {
+        const [datePart, timePart] = start_date.split(' ');
+        const [month, day, year] = datePart.split('/');
+        start_date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+    }
+
+    if (end_date.includes("/")) {
+        const [datePart, timePart] = end_date.split(' ');
+        const [month, day, year] = datePart.split('/');
+        end_date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+    }
 
     if (!sensor_brand || !sensor_id) {
         return response.status(400).json({ error: 'Sensor brand and sensor ID are required.' });
@@ -102,7 +113,7 @@ async function exportSensorDataReadingsToCSV(request, response) {
 
 
 // POST data via CSV file
-async function insertSensorDataReadingsFromCSV(request, response) {
+async function insertSensorDataFromCSV(request, response) {
     let RDSdatabase;
 
     // Extract parameters from the request
@@ -157,7 +168,24 @@ async function insertSensorDataReadingsFromCSV(request, response) {
         const tableColumns = await RDSdatabase.raw(tableSchemaQuery, [AQ_DATA_TABLE]);
 
         // Extract column names into a Set for validation
-        const schemaColumns = new Set(tableColumns.map(col => col.COLUMN_NAME));
+        const schemaColumns = new Set();
+
+        for (let i = 0; i < tableColumns[0].length; i++) {
+            let columnPair = tableColumns[0][i];
+            if (columnPair["COLUMN_NAME"] != "id") {
+                schemaColumns.add(columnPair["COLUMN_NAME"])
+            }
+        }
+
+        // Get the date column
+        const dateColumn = await getDateColumn(RDSdatabase, AQ_DATA_TABLE);
+
+        if (!dateColumn) {
+            await closeAWSConnection(RDSdatabase);
+            return response.status(400).json({
+                error: `Table '${AQ_DATA_TABLE}' does not have any data OR is missing a datetime column.`
+            });
+        }
 
         // Access the uploaded CSV file in memory
         const csvBuffer = request.file.buffer; // Use buffer instead of file path
@@ -170,46 +198,51 @@ async function insertSensorDataReadingsFromCSV(request, response) {
         let hasError = false;
         const sensorData = [];
 
-        const stream = require("stream")
-                        .Readable
-                        .from(csvBuffer.toString().split('\n'))
-                        .pipe(csv());
+        await new Promise((resolve, reject) => {
+            const stream = require("stream")
+            .Readable
+            .from(csvBuffer.toString().split('\n'))
+            .pipe(csv());
 
-        stream
-            .on('data', (data) => {
-                const incomingColumns = new Set(Object.keys(data));
+            stream
+                .on('data', (data) => {
+                    const incomingColumns = new Set(Object.keys(data));
 
-                // Validate incoming columns against schema
-                if (!compareSets(incomingColumns, schemaColumns)) {
-                    hasError = true;
-                    response.status(400).json({ 
-                        error: 'Column names or data types do not match table schema.' 
-                    });
-                    stream.destroy();
-                    return;
-                }
-
-                if (!hasError) {
-                    sensorData.push(data);
-                }
-            })
-            .on('end', async () => {
-                // Insert the data into the database
-                if (!hasError) {
-                    if (sensorData.length > 0) {
-                        await RDSdatabase(AQ_DATA_TABLE).insert(sensorData);
-                        response.status(200).json({ message: 'Data inserted successfully.' });
-                    } else {
-                        response.status(400).json({ error: 'No valid data found in the CSV file.' });
+                    // Validate incoming columns against schema
+                    if (!compareSets(incomingColumns, schemaColumns)) {
+                        hasError = true;
+                        stream.destroy();
+                        reject(new Error('Column names or data types do not match table schema.'));
+                        return;
                     }
-                }
-            })
-            .on('error', (error) => {
-                if (!hasError) {
+
+                    if (!hasError) {
+                        if (data[dateColumn] && data[dateColumn].includes("/")) {
+                            const [datePart, timePart] = data[dateColumn].split(' ');
+                            const [month, day, year] = datePart.split('/');
+                            data[dateColumn] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+                        }
+                        sensorData.push(data);
+                    }
+                })
+                .on('end', () => {
+                    console.log(`Successfully inserted '${sensorData.length}' rows of AQ readings into the '${AQ_DATA_TABLE}`)
+                    resolve();
+                })
+                .on('error', (error) => {
                     console.error("Error processing CSV file: ", error);
-                    response.status(500).json({ error: 'Error processing the CSV file.' });
-                }
-            });
+                    hasError = true;
+                    reject(error)
+                });
+        });
+
+        // Finish collected rows and insert to table
+        if (!hasError && sensorData.length > 0) {
+            await RDSdatabase(AQ_DATA_TABLE).insert(sensorData);
+            return response.status(200).json({ message: 'Data inserted successfully.' });
+        } else {
+            return response.status(400).json({ error: 'No valid data found in the CSV file.' });
+        }
 
     } catch (err) {
         console.error("Error processing sensor data: ", err);
@@ -236,10 +269,23 @@ async function fetchSensorDataReadings(request, response) {
         measurement_time_interval
     } = request.params;
 
-    const { 
+    let { 
         start_date,
         end_date, 
     } = request.query
+
+    // Make sure start_date and end_date are in DATETIME format yyyy-mm-dd hh:mm:ss
+    if (start_date.includes("/")) {
+        const [datePart, timePart] = start_date.split(' ');
+        const [month, day, year] = datePart.split('/');
+        start_date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+    }
+
+    if (end_date.includes("/")) {
+        const [datePart, timePart] = end_date.split(' ');
+        const [month, day, year] = datePart.split('/');
+        end_date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+    }
 
     if (!sensor_brand || !sensor_id) {
         return response.status(400).json({ error: 'Sensor brand and sensor ID are required.' });
@@ -370,7 +416,17 @@ async function insertSensorDataReadings(request, response) {
         const incomingColumns = new Set(Object.keys(requestPayload[0]));
 
         // Compare incoming columns with table columns
-        const schemaColumns = new Set(tableColumns.map(col => col.COLUMN_NAME));
+        const schemaColumns = new Set();
+
+        for (let i = 0; i < tableColumns[0].length; i++) {
+            let columnPair = tableColumns[0][i];
+            if (columnPair["COLUMN_NAME"] != "id") {
+                schemaColumns.add(columnPair["COLUMN_NAME"])
+            }
+        }
+
+        // Get the date column
+        const dateColumn = await getDateColumn(RDSdatabase, AQ_DATA_TABLE);
 
         if (!compareSets(incomingColumns, schemaColumns)) {
             return response.status(400).json({ 
@@ -378,14 +434,25 @@ async function insertSensorDataReadings(request, response) {
             });
         }
 
+        // Ensure date column has proper formatting
+        for (let i = 0; i < requestPayload.length; i++) {
+            const data = requestPayload[i];
+            if (data[dateColumn] && data[dateColumn].includes("/")) {
+                const [datePart, timePart] = data[dateColumn].split(' ');
+                const [month, day, year] = datePart.split('/');
+                data[dateColumn] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
+            }
+        }
+
         // Inserting data
         const insertResult = await RDSdatabase(AQ_DATA_TABLE).insert(requestPayload);
+
 
         await closeAWSConnection(RDSdatabase);
 
         if (insertResult > 0) {
             return response.status(200).json({
-                message: `Successfully inserted ${insertResult} rows`,
+                message: `Successfully inserted ${requestPayload.length} rows`,
             });
         } else {
             return response.status(500).json({
@@ -452,6 +519,13 @@ async function getLastDataReading(request, response) {
         // Get the date column
         const dateColumn = await getDateColumn(RDSdatabase, AQ_DATA_TABLE);
 
+        if (!dateColumn) {
+            await closeAWSConnection(RDSdatabase);
+            return response.status(400).json({
+                error: `Table '${AQ_DATA_TABLE}' does not have any data OR is missing a datetime column.`
+            });
+        }
+
         // Fetch all data from the constructed sensor table
         const last_row = await RDSdatabase(AQ_DATA_TABLE)
             .select("*")
@@ -477,10 +551,11 @@ async function getLastDataReading(request, response) {
     } 
 }
 
+
 module.exports = {
-    exportSensorDataReadingsToCSV,
-    insertSensorDataReadingsFromCSV,
+    exportSensorDataToCSV,
+    insertSensorDataFromCSV,
     fetchSensorDataReadings,
     insertSensorDataReadings,
-    getLastDataReading
+    getLastDataReading,
 };

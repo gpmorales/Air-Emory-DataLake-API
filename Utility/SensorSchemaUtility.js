@@ -38,17 +38,17 @@ async function createSensorMeasurementTable(database, tableName, schema) {
                         table.integer(columnName);
                         break;
                     case 'date':
-                        table.date(columnName);
+                        table.date(columnName).unique();
                         break;
                     case 'datetime':
-                        table.datetime(columnName);
+                        table.datetime(columnName).unique();
                         break;
                     default:
                         table.text(columnName);
                 }
             }
             // Create an index on the date column for ordering
-            table.index(dateColumnName); // Index for efficient ordering
+            table.index(dateColumnName); // Index for efficient ordering -> AUTO for primary key
         });
 
         return { success: true, message: `Sensor Measurement Table ${tableName} created successfully.` }
@@ -72,7 +72,7 @@ function createPayload(request) {
 }
 
 
-async function getDateColumn(RDSdatabase, measurement_table_name) {
+async function getDateColumn(RDSdatabase, aq_table) {
     const dateColumnsQuery = `
         SELECT COLUMN_NAME 
         FROM INFORMATION_SCHEMA.COLUMNS 
@@ -81,7 +81,8 @@ async function getDateColumn(RDSdatabase, measurement_table_name) {
     `;
 
     // Fetching date columns
-    const dateColumns = await RDSdatabase.raw(dateColumnsQuery, [measurement_table_name]);
+    const columns = await RDSdatabase.raw(dateColumnsQuery, [aq_table]);
+    const dateColumns = columns[0];
     
     // Assert that there is exactly one date column
     if (!dateColumns || dateColumns.length !== 1) {

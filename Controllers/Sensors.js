@@ -27,7 +27,7 @@ async function getAllSensors(request, response) {
 
         response.status(200).json({
             data: sensors,
-            message: sensors.length ? null : "No Sensors have been registered at this moment."
+            message: sensors.length ? "Successfully returned all registered Sensors.": "No Sensors have been registered at this moment."
         });
 
     } catch (err) {

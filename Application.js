@@ -25,7 +25,7 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Saikawa Labs AWS-RDS Air Quality API",
+      title: "Saikawa Labs Air Quality Storage API",
       version: "1.0.0",
       description:
         "An Express-based REST API that fetches and pushes air quality data to a AWS RDS MySQL instance",
