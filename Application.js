@@ -26,13 +26,13 @@ const options = {
     openapi: "3.0.0",
     info: {
       title: "Saikawa Labs Air Quality Storage API",
-      version: "1.0.0",
+      version: "2.0.0",
       description:
         "An Express-based REST API that fetches and pushes air quality data to a AWS RDS MySQL instance",
     },
     servers: [
       {
-        url: "http://localhost:3000",
+        url: "https://api2-dot-saikawalab-427516.uc.r.appspot.com/",
         description: "Development Server",
       },
     ],
