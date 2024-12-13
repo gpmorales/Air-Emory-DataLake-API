@@ -447,11 +447,10 @@ async function insertSensorDataReadings(request, response) {
         // Inserting data
         const insertResult = await RDSdatabase(AQ_DATA_TABLE).insert(requestPayload);
 
-
         await closeAWSConnection(RDSdatabase);
 
         if (insertResult > 0) {
-            return response.status(200).json({
+            return response.status(201).json({
                 message: `Successfully inserted ${requestPayload.length} rows`,
             });
         } else {
