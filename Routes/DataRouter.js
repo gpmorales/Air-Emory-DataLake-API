@@ -1,7 +1,5 @@
 const express = require("express");
 const DataRouter = express.Router();
-const multer = require("multer");
-const upload = multer({ storage: multer.memoryStorage() });
 
 const {
     exportSensorDataToCSV,
@@ -355,7 +353,6 @@ DataRouter.post("/json/:sensor_brand/:sensor_id/:measurement_model/:measurement_
  *                   description: Detailed error message regarding the server issue.
  */
 DataRouter.post("/csv/:sensor_brand/:sensor_id/:measurement_model/:measurement_type/:measurement_time_interval",
-    upload.single('file'),
     insertSensorDataFromCSV);
 
 

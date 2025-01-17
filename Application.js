@@ -63,7 +63,6 @@ const swaggerSpec = swaggerJsDoc(options);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
-
 // Application Entry Point
 async function StartServer() {
   try {
@@ -76,7 +75,6 @@ async function StartServer() {
     console.error('Error starting server:', err);
   }
 }
-
 
 
 // Initialize our Tables 

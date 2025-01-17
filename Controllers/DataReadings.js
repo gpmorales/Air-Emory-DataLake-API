@@ -1,7 +1,7 @@
 const { RDSInstanceConnection, closeAWSConnection } = require("../Database-Config/RDSInstanceConnection");
 const { getDateColumn, compareSets } = require("../Utility/SensorSchemaUtility.js")
 const { Parser } = require('json2csv');
-const csv = require("csv-parser");
+const Busboy = require('busboy');
 
 const MEASUREMENT_TYPES = ["RAW", "CORRECTED"] 
 const MEASUREMENT_TIME_INTERVALS = ["HOURLY", "DAILY", "OTHER"];
@@ -188,53 +188,58 @@ async function insertSensorDataFromCSV(request, response) {
         }
 
         // Access the uploaded CSV file in memory
-        const csvBuffer = request.file.buffer; // Use buffer instead of file path
-
-        if (!csvBuffer || csvBuffer.length === 0) {
-            return response.status(400).json({ error: 'Empty or invalid CSV file' });
-        }
-
-        // Read the CSV file from the buffer
         let hasError = false;
-        const sensorData = [];
+        const sensorData = []
+        const busboy = new Busboy({ headers: req.headers });
 
-        await new Promise((resolve, reject) => {
-            const stream = require("stream")
-            .Readable
-            .from(csvBuffer.toString().split('\n'))
-            .pipe(csv());
+        busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+            console.log(`Receiving file: ${filename}`);
 
-            stream
+            // Stream the incoming file into a CSV parser
+            file.pipe(csv())
                 .on('data', (data) => {
                     const incomingColumns = new Set(Object.keys(data));
 
                     // Validate incoming columns against schema
                     if (!compareSets(incomingColumns, schemaColumns)) {
                         hasError = true;
-                        stream.destroy();
-                        reject(new Error('Column names or data types do not match table schema.'));
-                        return;
+                        file.unpipe();
+                        return res.status(400).json({ error: 'Column names or data types do not match table schema.' });
                     }
 
-                    if (!hasError) {
-                        if (data[dateColumn] && data[dateColumn].includes("/")) {
-                            const [datePart, timePart] = data[dateColumn].split(' ');
-                            const [month, day, year] = datePart.split('/');
-                            data[dateColumn] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
-                        }
-                        sensorData.push(data);
+                    if (data[dateColumn] && data[dateColumn].includes("/")) {
+                        const [datePart, timePart] = data[dateColumn].split(' ');
+                        const [month, day, year] = datePart.split('/');
+                        data[dateColumn] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${timePart || '00:00:00'}`;
                     }
+
+                    sensorData.push(data);
                 })
                 .on('end', () => {
-                    console.log(`Successfully inserted '${sensorData.length}' rows of AQ readings into the '${AQ_DATA_TABLE}`)
-                    resolve();
+                    console.log('File parsing complete.');
                 })
-                .on('error', (error) => {
-                    console.error("Error processing CSV file: ", error);
+                .on('error', (err) => {
+                    console.error('Error parsing CSV:', err);
                     hasError = true;
-                    reject(error)
                 });
         });
+
+        busboy.on('finish', async () => {
+            if (hasError) {
+                return; // Error responses already sent in the error handlers
+            }
+
+            // All data from the file has been collected at this point
+            if (sensorData.length > 0) {
+                // Insert data into your database, or process it as needed
+                // await RDSdatabase.insert(sensorData);
+                res.status(200).json({ message: 'Data inserted successfully.' });
+            } else {
+                res.status(400).json({ error: 'No valid data found in the CSV file.' });
+            }
+        });
+
+        req.pipe(busboy);
 
         // Finish collected rows and insert to table
         if (!hasError && sensorData.length > 0) {
